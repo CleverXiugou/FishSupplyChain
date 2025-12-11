@@ -31,8 +31,8 @@ Windows: 建议安装 WSL (Windows Subsystem for Linux) 后，在 WSL 环境中�
 ### 2. 下载代码与编译
 克隆项目到本地并安装依赖：
 
-### 克隆仓库 (请替换为您的实际仓库地址)
-```git clone <仓库地址>```
+### 克隆仓库 
+```git clone <https://github.com/CleverXiugou/FishSupplyChain.git>```
 
 ### 进入目录
 ```cd fish-supply-chain```
