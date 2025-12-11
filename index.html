@@ -3,29 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐟 鱼类溯源 - 担保交易版</title>
+    <title>🐟 鱼类溯源 - 鱼币生态版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #0077be; --bg: #f4f9ff; --card: #fff; --text: #333; }
+        :root { --primary: #0077be; --bg: #f4f9ff; --card: #fff; --text: #333; --coin: #f57f17; }
         body { font-family: 'Segoe UI', Roboto, sans-serif; padding: 20px; background: var(--bg); max-width: 900px; margin: 0 auto; color: var(--text); }
         h1 { color: var(--primary); text-align: center; margin-bottom: 20px; }
         
         .card { background: var(--card); padding: 25px; margin-bottom: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s; }
         .card:hover { transform: translateY(-2px); }
-        
         h2 { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0; color: #444; font-size: 1.2rem; display: flex; align-items: center; justify-content: space-between; }
         
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 15px; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; transition: border 0.3s; }
-        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,119,190,0.1); }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,119,190,0.1); }
         
         button { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; font-size: 14px; transition: opacity 0.2s; }
         button:hover { opacity: 0.9; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
         button.buy-btn { background: #e91e63; }
         button.logistics-btn { background: #ff9800; }
-        button.confirm-btn { background: #28a745; margin-top: 10px; } 
+        button.confirm-btn { background: #28a745; margin-top: 5px; } 
+        button.reject-btn { background: #d32f2f; margin-top: 5px; }
         button.withdraw-btn { background: #673ab7; color: #fff; }
+        button.approve-btn { background: #ffca28; color: #333; } /* 授权按钮 */
         button.sm-btn { width: auto; padding: 6px 12px; font-size: 12px; }
+
+        /* 鱼币银行样式 */
+        .token-card { border: 2px solid var(--coin); background: #fffde7; }
+        .token-balance { font-size: 24px; font-weight: bold; color: var(--coin); }
+        .rate-info { font-size: 12px; color: #777; margin-top: 5px; }
 
         .balance-box { background: #e3f2fd; border-left: 5px solid #0077be; padding: 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
         .balance-num { font-size: 1.4rem; font-weight: bold; color: #0077be; }
@@ -35,67 +42,87 @@
         .filter-btn { background: #f1f3f4; color: #555; border: 1px solid #eee; padding: 8px 16px; border-radius: 20px; font-size: 13px; white-space: nowrap; width: auto; cursor:pointer;}
         .filter-btn.active { background: var(--primary); color: white; }
 
-        /* 溯源 Tab */
-        .trace-tabs { display: flex; border-bottom: 1px solid #eee; margin-bottom: 15px; }
-        .trace-tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #666; }
-        .trace-tab.active { border-color: var(--primary); color: var(--primary); font-weight: bold; }
-
+        /* 列表与卡片 */
         .scrollable-fish-container { max-height: 500px; overflow-y: auto; background: #fafbfd; border: 1px solid #e1e4e8; border-radius: 12px; padding: 15px; }
         .fish-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; }
-        
         .fish-card { border: 1px solid #eee; padding: 15px; border-radius: 12px; background: #fff; cursor: pointer; transition: transform 0.2s; position: relative;}
         .fish-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
         .fish-header { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 8px; }
         .fish-details p { margin: 4px 0; display: flex; justify-content: space-between; font-size: 13px; color: #555; }
-        .fish-hash { font-size: 11px; color: #999; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         .badge { padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; }
         .badge-0 { background: #eee; color: #555; } 
         .badge-1 { background: #e3f2fd; color: #0277bd; } 
         .badge-2 { background: #fff3cd; color: #856404; } 
         .badge-3 { background: #d4edda; color: #155724; } 
+        .badge-4 { background: #e57373; color: #b71c1c; }
+        .spoiled-alert { background: #ffebee; color: #c62828; padding: 5px; font-size: 12px; text-align: center; border-radius: 4px; margin-top: 5px; border: 1px solid #ffcdd2; font-weight: bold; }
 
+        /* 溯源相关 */
+        .trace-tabs { display: flex; border-bottom: 1px solid #eee; margin-bottom: 15px; }
+        .trace-tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #666; }
+        .trace-tab.active { border-color: var(--primary); color: var(--primary); font-weight: bold; }
         .timeline { list-style: none; padding: 0; margin-top: 15px; border-left: 2px solid #eee; margin-left: 10px; }
         .timeline-item { margin-bottom: 20px; padding-left: 20px; position: relative; }
         .timeline-item::before { content: ''; position: absolute; left: -6px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #ccc; border: 2px solid #fff; }
         .timeline-item.active::before { background: var(--primary); }
         .timeline-date { font-size: 12px; color: #999; }
         .timeline-content { background: #f9f9f9; padding: 10px; border-radius: 6px; margin-top: 5px; font-size: 13px; border: 1px solid #eee; }
+        .snapshot-card { background:#fff3cd; padding:20px; border-radius:10px; margin-top:10px; border:1px solid #ffeeba; text-align:center; }
 
         #status { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 25px; background: rgba(0,0,0,0.85); color: white; border-radius: 30px; display: none; z-index: 1000; backdrop-filter: blur(5px); }
     </style>
 </head>
 <body>
 
-    <h1>⚓ 鱼类溯源 - 全程冷链版</h1>
+    <h1>⚓ 鱼类溯源 - 鱼币生态版</h1>
     
     <div style="text-align: center; margin-bottom: 20px;">
         <button onclick="connectWallet()" style="width:auto">🦊 连接钱包</button>
         <div id="walletAddress" style="margin-top:5px; font-family: monospace; color: #666;">🔴 未连接</div>
     </div>
 
+    <div class="card token-card" id="bankSection" style="display:none;">
+        <h2>🏦 鱼币银行 (FishCoin Bank)</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="font-size:13px; color:#f9a825;">我的余额:</div>
+                <div class="token-balance" id="myTokenBalance">0.0 FT</div>
+            </div>
+            <div style="text-align:right;">
+                <input id="buyTokenAmount" type="number" placeholder="输入 ETH 数量" style="width:120px; padding:10px;">
+                <button class="sm-btn" onclick="buyTokens()" style="background:#fbc02d; color:#333;">💱 ETH 换币</button>
+                <div class="rate-info">当前汇率: 1 ETH = 10 FT</div>
+            </div>
+        </div>
+    </div>
+
     <div class="card" id="balanceSection" style="display:none;">
-        <h2>💰 资金账户 <button class="sm-btn withdraw-btn" onclick="withdrawPayments()">💸 一键提现</button></h2>
+        <h2>💰 交易结算账户 <button class="sm-btn withdraw-btn" onclick="withdrawPayments()">💸 提取鱼币</button></h2>
         <div class="balance-box">
             <div>
-                <div style="font-size:12px; color:#555">合约内暂存金额:</div>
-                <div class="balance-num" id="pendingBalance">0.00 ETH</div>
+                <div style="font-size:12px; color:#555">待提现金额:</div>
+                <div class="balance-num" id="pendingBalance">0.0 FT</div>
+            </div>
+            <div style="font-size:12px; color:#666; max-width: 200px; text-align: right;">
+                * 交易（押金/收入/赔付）暂存于此，请提现到钱包。
             </div>
         </div>
     </div>
 
     <div class="card" style="border: 2px solid #ff9800;">
-        <h2>🚚 物流更新 (Transport Update)</h2>
+        <h2>🚚 物流更新</h2>
         <div class="grid" style="grid-template-columns: 1fr 1fr 1fr auto;">
             <input id="logId" type="number" placeholder="🆔 鱼 ID">
             <input id="newLoc" placeholder="📍 当前位置">
             <input id="newTemp" type="number" placeholder="🌡️ 当前温度">
             <button class="logistics-btn" onclick="updateLogistics()">📦 更新状态</button>
         </div>
+        <p style="font-size:12px; color:#e65100; margin-top:-10px;">* 温度超标将自动标记变质。</p>
     </div>
 
     <div class="card" style="border: 2px solid #e91e63;">
-        <h2>🏪 交易市场 <button class="sm-btn" onclick="loadMarketplace()">🔄 刷新</button></h2>
+        <h2>🏪 交易市场 (使用鱼币) <button class="sm-btn" onclick="loadMarketplace()">🔄 刷新</button></h2>
         <div class="market-controls">
             <input type="text" id="marketSearch" placeholder="🔍 搜索品种..." oninput="renderMarketList()" style="flex:2">
             <select id="marketSort" onchange="renderMarketList()" style="flex:1">
@@ -116,6 +143,7 @@
             <input id="loc" placeholder="📍 初始地点">
             <input id="temp" type="number" placeholder="🌡️ 初始温度">
             <input id="weight" type="number" placeholder="⚖️ 重量">
+            <input id="maxTemp" type="number" placeholder="⚠️ 安全温度上限" style="border-color:#ff9800;">
         </div>
         <button onclick="catchFish()">🌊 捕捞上链</button>
     </div>
@@ -134,33 +162,29 @@
     </div>
 
     <div class="card">
-        <h2>💰 卖家：上架操作</h2>
+        <h2>💰 卖家：上架操作 (需授权)</h2>
         <div class="grid">
             <input id="sellId" type="number" placeholder="🆔 鱼 ID">
-            <input id="sellPrice" type="number" placeholder="💎 售价 (ETH)">
+            <input id="sellPrice" type="number" placeholder="💎 售价 (FT)">
         </div>
-        <button onclick="listFish()">🏷️ 支付押金并上架</button>
+        <button onclick="checkApproveAndList()" id="btnListAction">🏷️ 检查授权并上架</button>
     </div>
 
     <div class="card" style="border-top: 4px solid #28a745;">
-        <h2>🔍 溯源查询系统</h2>
-        
+        <h2>🔍 溯源查询</h2>
         <div class="trace-tabs">
             <div class="trace-tab active" onclick="switchTraceMode('full')" id="tabFull">📜 全流程溯源</div>
-            <div class="trace-tab" onclick="switchTraceMode('time')" id="tabTime">⏱️ 按时间点查询</div>
+            <div class="trace-tab" onclick="switchTraceMode('time')" id="tabTime">⏱️ 按时间点查冷链</div>
         </div>
-
         <div id="traceFullInput" style="display:flex; gap:10px; margin-bottom:15px;">
-            <input id="queryId" type="number" placeholder="输入 ID 查询全程历史..." style="flex:1">
-            <button onclick="getTraceInfo()" style="width:auto">🔎 追溯全流程</button>
+            <input id="queryId" type="number" placeholder="输入 ID 查询..." style="flex:1">
+            <button onclick="getTraceInfo()" style="width:auto">🔎 追溯</button>
         </div>
-
         <div id="traceTimeInput" style="display:none; gap:10px; margin-bottom:15px;">
             <input id="queryIdTime" type="number" placeholder="输入 ID" style="width:100px;">
             <input id="queryTime" type="datetime-local" style="flex:1">
-            <button onclick="getTraceByTime()" style="width:auto">📍 查询那一刻状态</button>
+            <button onclick="getTraceByTime()" style="width:auto">📍 查询快照</button>
         </div>
-
         <div id="traceResult"></div>
     </div>
 
@@ -168,30 +192,42 @@
 
     <script>
         // ⚠️⚠️⚠️ 请替换为最新部署合约地址 ⚠️⚠️⚠️
-        const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; 
+        const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
 
+        // 主合约 ABI
         const ABI = [
-            "function catchFish(string, string, string, int256, uint256, string) public returns (uint256)",
-            "function listFish(uint256 tokenId, uint256 price) public payable",
-            "function buyFish(uint256 tokenId) public payable",
+            "function token() view returns (address)", // 获取 Token 地址
+            "function catchFish(string, string, string, int256, uint256, string, int256) public returns (uint256)",
+            "function listFish(uint256 tokenId, uint256 price) public", // 不再是 payable
+            "function buyFish(uint256 tokenId) public", // 不再是 payable
             "function confirmReceipt(uint256 tokenId) public",
+            "function rejectShipment(uint256 tokenId) public",
             "function withdrawPayments() public",
             "function updateLogistics(uint256 tokenId, string _location, int256 _temperature) public",
-            "function getFishStatusAtTime(uint256 tokenId, uint256 queryTimestamp) view returns (string, int256, uint256, bool)", // 新增
+            "function getFishStatusAtTime(uint256 tokenId, uint256 queryTimestamp) view returns (string, int256, uint256, bool)",
             "function pendingWithdrawals(address) view returns (uint256)",
-            "function fishDetails(uint256) view returns (string, string, int256, uint256, uint, string, uint256, uint8, address, address)",
-            "function getFishByOwner(address) view returns (uint256[], tuple(string, string, int256, uint256, uint, string, uint256, uint8, address, address)[])",
-            "function getAllFishForSale() view returns (uint256[], tuple(string, string, int256, uint256, uint, string, uint256, uint8, address, address)[])",
+            "function fishDetails(uint256) view returns (string, string, int256, uint256, uint, string, uint256, uint8, address, address, int256, bool)",
+            "function getFishByOwner(address) view returns (uint256[], tuple(string, string, int256, uint256, uint, string, uint256, uint8, address, address, int256, bool)[])",
+            "function getAllFishForSale() view returns (uint256[], tuple(string, string, int256, uint256, uint, string, uint256, uint8, address, address, int256, bool)[])",
             "function getFishHistory(uint256) view returns (tuple(uint256 timestamp, string location, int256 temperature)[])",
             "function ownerOf(uint256) view returns (address)",
-            "event FishCaught(uint256 indexed tokenId, address indexed fisherman, string species)",
+            "event FishCaught(uint256 indexed tokenId, address indexed fisherman, string species, int256 maxTemp)",
             "event FishListed(uint256 indexed tokenId, uint256 price, address seller)",
             "event FishSold(uint256 indexed tokenId, address buyer, uint256 price)",
-            "event FishConfirmed(uint256 indexed tokenId, address buyer, address seller)"
+            "event FishConfirmed(uint256 indexed tokenId, address buyer, address seller)",
+            "event FishRejected(uint256 indexed tokenId, address buyer, address seller)"
         ];
 
-        let provider, signer, contract;
-        const STATE_TEXT = ["私有", "出售中", "待收货", "已完成"];
+        // 鱼币 Token ABI
+        const TOKEN_ABI = [
+            "function buyTokens() public payable",
+            "function balanceOf(address) view returns (uint256)",
+            "function approve(address spender, uint256 amount) public returns (bool)",
+            "function allowance(address owner, address spender) view returns (uint256)"
+        ];
+
+        let provider, signer, contract, tokenContract;
+        const STATE_TEXT = ["私有", "出售中", "待收货", "已完成", "已拒收"];
         let cachedMyFish = []; 
         let cachedMarketFish = []; 
         let currentFilter = 'all';
@@ -202,130 +238,196 @@
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
                 document.getElementById("walletAddress").innerText = await signer.getAddress();
+                
+                // 初始化主合约
                 contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
                 
+                // 获取 Token 地址并初始化 Token 合约
+                const tokenAddr = await contract.token();
+                tokenContract = new ethers.Contract(tokenAddr, TOKEN_ABI, signer);
+
                 document.getElementById("balanceSection").style.display = "block";
-                showToast("✅ 钱包连接成功");
+                document.getElementById("bankSection").style.display = "block";
                 
-                checkPendingBalance();
-                loadMyFish();
-                loadMarketplace();
+                showToast("✅ 钱包连接成功");
+                refreshAll();
             } catch (e) { alert(e.message); }
         }
 
-        // --- 物流更新 ---
-        async function updateLogistics() {
-            const id = v('logId');
-            const loc = v('newLoc');
-            const temp = v('newTemp');
-            if(!id || !loc || !temp) return alert("请填写完整");
+        // --- 🏦 银行与代币逻辑 ---
+        async function refreshBalances() {
+            if(!contract || !tokenContract) return;
             try {
-                showToast("正在更新物流...");
-                const tx = await contract.updateLogistics(id, loc, temp);
+                const addr = await signer.getAddress();
+                // 1. 钱包里的鱼币
+                const tokenBal = await tokenContract.balanceOf(addr);
+                document.getElementById("myTokenBalance").innerText = ethers.formatEther(tokenBal) + " FT";
+                
+                // 2. 合约里待提现的鱼币
+                const pending = await contract.pendingWithdrawals(addr);
+                document.getElementById("pendingBalance").innerText = ethers.formatEther(pending) + " FT";
+            } catch(e) {}
+        }
+
+        async function buyTokens() {
+            const amount = document.getElementById("buyTokenAmount").value;
+            if(!amount) return alert("请输入 ETH 数量");
+            try {
+                showToast("正在兑换鱼币...");
+                const tx = await tokenContract.buyTokens({ value: ethers.parseEther(amount) });
                 await tx.wait();
-                showToast("✅ 物流信息已更新");
+                showToast("✅ 兑换成功！");
+                refreshBalances();
+            } catch(e) { alert(e.message); }
+        }
+
+        // --- 🔐 核心：交易授权处理 ---
+        // action: 'list' (1x) or 'buy' (2x)
+        async function handleTokenAction(action, id, priceEth) {
+            try {
+                const price = ethers.parseEther(priceEth);
+                const required = action === 'list' ? price : price * 2n;
+                const addr = await signer.getAddress();
+
+                // 1. 检查授权
+                const allowance = await tokenContract.allowance(addr, CONTRACT_ADDRESS);
+                if(allowance < required) {
+                    if(!confirm(`⚠️ 尚未授权合约扣款。\n本次操作需扣除: ${ethers.formatEther(required)} FT\n点击【确定】进行授权。`)) return;
+                    showToast("正在请求授权...");
+                    // 授权最大值，省得每次都要点
+                    const txApprove = await tokenContract.approve(CONTRACT_ADDRESS, ethers.MaxUint256);
+                    await txApprove.wait();
+                    showToast("✅ 授权成功！正在执行交易...");
+                }
+
+                // 2. 执行交易
+                if(action === 'list') {
+                    const tx = await contract.listFish(id, price);
+                    await tx.wait();
+                    showToast("✅ 上架成功 (已扣押金)");
+                } else {
+                    const tx = await contract.buyFish(id);
+                    await tx.wait();
+                    showToast("✅ 购买成功 (已扣双倍资金)");
+                }
+                refreshAll();
+
+            } catch (e) { alert("交易失败: " + (e.reason || e.message)); }
+        }
+
+        // --- 业务操作 ---
+        async function catchFish() {
+            const s=v("species"), l=v("loc"), t=v("temp"), w=v("weight"), mt=v("maxTemp");
+            if(!s||!l||!t||!w||!mt) return alert("请填写完整");
+            try {
+                showToast("上链中...");
+                const tx = await contract.catchFish("ipfs://demo", s, l, t, w, "HASH_"+Date.now(), mt);
+                await tx.wait();
+                showToast("✅ 捕捞成功");
                 refreshAll();
             } catch(e) { alert(e.message); }
         }
 
-        // --- 溯源 UI 切换 ---
-        function switchTraceMode(mode) {
-            document.getElementById('tabFull').className = mode === 'full' ? 'trace-tab active' : 'trace-tab';
-            document.getElementById('tabTime').className = mode === 'time' ? 'trace-tab active' : 'trace-tab';
-            document.getElementById('traceFullInput').style.display = mode === 'full' ? 'flex' : 'none';
-            document.getElementById('traceTimeInput').style.display = mode === 'time' ? 'flex' : 'none';
-            document.getElementById('traceResult').innerHTML = ""; // 清空结果
+        async function checkApproveAndList() {
+            const id = v('sellId'), price = v('sellPrice');
+            if(!id || !price) return alert("输入完整");
+            await handleTokenAction('list', id, price);
         }
 
-        // --- 溯源模式一：全流程 ---
-        async function getTraceInfo() {
-            if (!contract) return alert("请先连接钱包");
-            const id = document.getElementById("queryId").value;
-            if(!id) return alert("请输入ID");
-            
-            const div = document.getElementById("traceResult");
-            div.innerHTML = "🔍 查询全网数据...";
+        async function buyFish(id, priceEth) {
+            if(!confirm(`确认购买 ID:${id} ?\n售价: ${priceEth} FT\n需付(含押金): ${priceEth*2} FT`)) return;
+            await handleTokenAction('buy', id, priceEth);
+        }
 
+        async function confirmReceipt(id) {
+            try { showToast("确认收货..."); const tx = await contract.confirmReceipt(id); await tx.wait(); alert("资金已结算"); refreshAll(); } catch(e) { alert(e.message); }
+        }
+
+        async function rejectShipment(id) {
+            if(!confirm("⚠️ 拒收将没收卖家所有资金，确定吗？")) return;
+            try { showToast("正在拒收..."); const tx = await contract.rejectShipment(id); await tx.wait(); alert("已拒收赔付"); refreshAll(); } catch(e) { alert(e.message); }
+        }
+
+        async function withdrawPayments() {
+            try { showToast("提现中..."); const tx = await contract.withdrawPayments(); await tx.wait(); alert("鱼币已提现到钱包"); refreshAll(); } catch(e) { alert(e.message); }
+        }
+
+        async function updateLogistics() {
+            const id=v('logId'), l=v('newLoc'), t=v('newTemp');
+            if(!id) return;
+            try { showToast("更新中..."); const tx = await contract.updateLogistics(id, l, t); await tx.wait(); showToast("更新成功"); refreshAll(); } catch(e){ alert(e.message); }
+        }
+
+        // --- 数据加载 (带 Fish Token 价格展示) ---
+        async function loadMyFish() {
+            if (!contract) return;
+            const div = document.getElementById("myFishList");
+            div.innerHTML = "<p style='text-align:center'>加载中...</p>";
             try {
-                const info = await contract.fishDetails(id);
-                if (!info[0]) throw new Error("未找到此ID");
-                const owner = await contract.ownerOf(id);
-                const history = await contract.getFishHistory(id);
-
-                let historyHtml = `<div class="logistics-track"><h4>🌡️ 全程冷链轨迹</h4>`;
-                if(history.length === 0) historyHtml += `<p style="color:#999">暂无记录</p>`;
-                else {
-                    history.forEach(h => {
-                        const date = new Date(Number(h.timestamp) * 1000).toLocaleString();
-                        historyHtml += `
-                            <div class="track-item">
-                                <div class="track-time">${date}</div>
-                                <div class="track-dot"></div>
-                                <div class="track-info">到达 <b>${h.location}</b>，温度 <b>${h.temperature}°C</b></div>
-                            </div>`;
+                const addr = await signer.getAddress();
+                const res = await contract.getFishByOwner(addr);
+                const ids = res[0];
+                const fishes = res[1];
+                cachedMyFish = [];
+                for(let i=0; i<ids.length; i++) {
+                    cachedMyFish.push({ 
+                        id: ids[i], data: fishes[i], state: Number(fishes[i][7]),
+                        maxTemp: fishes[i][10], isSpoiled: fishes[i][11]
                     });
                 }
-                historyHtml += `</div>`;
-
-                div.innerHTML = `
-                    <div style="background:#f0f8ff; padding:15px; border-radius:10px; margin-top:10px;">
-                        <h3 style="margin:0 0 10px 0; color:#0077be;">${info[0]} (ID: ${id})</h3>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px;">
-                            <div>📍 最新位置: ${info[1]}</div>
-                            <div>🌡️ 最新温度: ${info[2]} °C</div>
-                            <div>👤 当前持有: ${shortAddr(owner)}</div>
-                        </div>
-                        <hr style="border-top:1px dashed #ccc; margin:15px 0;">
-                        ${historyHtml}
-                    </div>
-                `;
-            } catch (e) { console.error(e); div.innerHTML = "<p style='color:red'>❌ 查询失败</p>"; }
+                document.getElementById("fishCount").innerText = ids.length;
+                renderFishList();
+            } catch (e) { console.error(e); }
         }
 
-        // --- 溯源模式二：按时间点查询 ---
-        async function getTraceByTime() {
-            if (!contract) return alert("请先连接钱包");
-            const id = document.getElementById("queryIdTime").value;
-            const timeStr = document.getElementById("queryTime").value;
-            if(!id || !timeStr) return alert("请输入ID和时间");
+        function renderFishList() {
+            const div = document.getElementById("myFishList");
+            div.innerHTML = "";
+            const filtered = cachedMyFish.filter(item => {
+                if (currentFilter === 'all') return true;
+                if (currentFilter === 'private') return item.state === 0 || item.state === 3 || item.state === 4;
+                if (currentFilter === 'selling') return item.state === 1;
+                if (currentFilter === 'sold') return item.state === 2;
+                return true;
+            });
+            if (filtered.length === 0) { div.innerHTML = "<p style='text-align:center;width:100%;color:#999'>暂无数据</p>"; return; }
 
-            const timestamp = Math.floor(new Date(timeStr).getTime() / 1000);
-            const div = document.getElementById("traceResult");
-            div.innerHTML = "🔍 正在回溯时光...";
-
-            try {
-                // 调用合约新接口
-                const res = await contract.getFishStatusAtTime(id, timestamp);
-                const location = res[0];
-                const temp = res[1];
-                const recordedTime = res[2];
-                const found = res[3];
-
-                if (!found) {
-                    div.innerHTML = `<p style="color:red; text-align:center; margin-top:20px;">❌ 该时间点（${new Date(timestamp*1000).toLocaleString()}）鱼还未捕捞！</p>`;
-                    return;
+            filtered.forEach(item => {
+                const {id, data: f, state, maxTemp, isSpoiled} = item;
+                const price = ethers.formatEther(f[6]);
+                const date = new Date(Number(f[4]) * 1000).toLocaleString();
+                
+                let actionHtml = "";
+                if (state === 2) {
+                    actionHtml = `
+                        <button class="confirm-btn" onclick="event.stopPropagation(); confirmReceipt('${id}')">✅ 确认收货</button>
+                        <button class="reject-btn" onclick="event.stopPropagation(); rejectShipment('${id}')">❌ 拒绝收货</button>
+                    `;
                 }
+                let spoiledHtml = isSpoiled ? `<div class="spoiled-alert">⚠️ 已变质 (> ${maxTemp}°C)</div>` : "";
 
-                div.innerHTML = `
-                    <div style="background:#fff3cd; padding:20px; border-radius:10px; margin-top:10px; border:1px solid #ffeeba; text-align:center;">
-                        <h3 style="margin:0 0 10px 0; color:#856404;">🕰️ 时空快照</h3>
-                        <p style="font-size:14px; color:#856404;">查询时间: ${new Date(timestamp*1000).toLocaleString()}</p>
-                        <hr style="border-top:1px dashed #e6dbb9; margin:15px 0;">
-                        <div style="font-size:16px;">
-                            <p>当时位置: <b>${location}</b></p>
-                            <p>当时温度: <b>${temp} °C</b></p>
-                            <p style="font-size:12px; color:#999; margin-top:10px;">(基于 ${new Date(Number(recordedTime)*1000).toLocaleString()} 的记录)</p>
-                        </div>
+                const card = document.createElement("div");
+                card.className = "fish-card";
+                card.innerHTML = `
+                    <div class="fish-header"><h3 style="margin:0; color:#0077be;">🐟 ${f[0]}</h3><span class="badge badge-${state}">${STATE_TEXT[state]}</span></div>
+                    <div class="fish-details">
+                        <p><span>ID:</span> <b>${id}</b></p>
+                        <p><span>📍 地点:</span> ${f[1]}</p>
+                        <p><span>🌡️ 温度:</span> ${f[2]}°C</p>
+                        <p><span>💎 价格:</span> <b style="color:${state===0?'#999':'#f57f17'}">${state===0 ? '-' : price+' FT'}</b></p>
                     </div>
+                    ${spoiledHtml}
+                    ${actionHtml}
                 `;
-            } catch(e) { console.error(e); div.innerHTML = "<p style='color:red'>查询出错</p>"; }
+                card.onclick = () => { document.getElementById("sellId").value = id; document.getElementById("logId").value = id; };
+                div.appendChild(card);
+            });
         }
 
-        // --- 市场与鱼篓 (保持不变) ---
         async function loadMarketplace() {
             if (!contract) return;
             const div = document.getElementById("marketList");
-            div.innerHTML = "<p style='text-align:center;width:100%'>加载中...</p>";
+            div.innerHTML = "<p style='text-align:center'>加载中...</p>";
             try {
                 const res = await contract.getAllFishForSale();
                 const ids = res[0];
@@ -354,11 +456,14 @@
                 else if (sortType === 'price_desc') return a.priceWei > b.priceWei ? -1 : 1;
                 else return b.id < a.id ? -1 : 1;
             });
-            if (filtered.length === 0) { div.innerHTML = "<p style='color:#999; text-align:center; grid-column:1/-1; padding:20px;'>暂无商品</p>"; return; }
+            if (filtered.length === 0) { div.innerHTML = "<p style='text-align:center;width:100%;color:#999'>暂无商品</p>"; return; }
             filtered.forEach(item => {
                 const { id, data: f, priceWei, isMine } = item;
                 const priceEth = ethers.formatEther(priceWei);
-                let btnHtml = isMine ? `<button disabled style="background:#ccc; cursor:not-allowed;">🚫 您的商品</button>` : `<button class="buy-btn" onclick="buyFish('${id}', '${priceEth}')">🛒 购买</button>`;
+                let btnHtml = isMine 
+                    ? `<button disabled style="background:#ccc;">🚫 您的商品</button>` 
+                    : `<button class="buy-btn" onclick="buyFish('${id}', '${priceEth}')">🛒 购买</button>`;
+                
                 const card = document.createElement("div");
                 card.className = "fish-card";
                 card.style.borderColor = "#e91e63";
@@ -367,10 +472,8 @@
                     <div class="fish-details">
                         <p><span>📍 地点:</span> <b>${f[1]}</b></p>
                         <p><span>⚖️ 重量:</span> <b>${f[3]} g</b></p>
-                        <p><span>🌡️ 温度:</span> <b>${f[2]} °C</b></p>
                         <p><span>👤 卖家:</span> ${shortAddr(f[8])}</p>
-                        <hr style="border-top:1px dashed #eee; margin:8px 0;">
-                        <p><span>💎 售价:</span> <b style="color:#e91e63; font-size:1.1em">${priceEth} ETH</b></p>
+                        <p><span>💎 售价:</span> <b style="color:#e91e63; font-size:1.1em">${priceEth} FT</b></p>
                     </div>
                     ${btnHtml}
                 `;
@@ -378,146 +481,40 @@
             });
         }
 
-        async function loadMyFish() {
-            if (!contract) return;
-            const div = document.getElementById("myFishList");
-            div.innerHTML = "<p style='text-align:center;width:100%'>加载中...</p>";
+        // --- 溯源 (复用上一版逻辑，无需变动) ---
+        async function getTraceInfo() { /* ...代码省略，逻辑同上一版，只需注意价格单位变了... */ }
+        async function getTraceByTime() { /* ...同上... */ }
+        // 为了完整性，这里放简版:
+        async function getTraceInfo() {
+             if (!contract) return;
+             const id = document.getElementById("queryId").value;
+             if(!id) return;
+             const div = document.getElementById("traceResult");
+             div.innerHTML = "查询中...";
+             try {
+                 const info = await contract.fishDetails(id);
+                 const history = await contract.getFishHistory(id);
+                 let hHtml = "";
+                 history.forEach(h => { hHtml += `<div>${new Date(Number(h.timestamp)*1000).toLocaleString()} - ${h.location} (${h.temperature}°C)</div>`; });
+                 div.innerHTML = `<div style="background:#fff;padding:10px;"><h3>${info[0]}</h3>${hHtml}</div>`;
+             } catch(e) { div.innerHTML = "查询失败"; }
+        }
+        async function getTraceByTime() {
+            const id = document.getElementById("queryIdTime").value;
+            const timeStr = document.getElementById("queryTime").value;
+            if(!id||!timeStr) return;
+            const ts = Math.floor(new Date(timeStr).getTime()/1000);
             try {
-                const addr = await signer.getAddress();
-                const res = await contract.getFishByOwner(addr);
-                const ids = res[0];
-                const fishes = res[1];
-                cachedMyFish = [];
-                for(let i=0; i<ids.length; i++) cachedMyFish.push({ id: ids[i], data: fishes[i], state: Number(fishes[i][7]) });
-                document.getElementById("fishCount").innerText = ids.length;
-                renderFishList();
-            } catch (e) { console.error(e); }
-        }
-
-        function filterFish(type) {
-            currentFilter = type;
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            renderFishList();
-        }
-
-        function renderFishList() {
-            const div = document.getElementById("myFishList");
-            div.innerHTML = "";
-            const filtered = cachedMyFish.filter(item => {
-                if (currentFilter === 'all') return true;
-                if (currentFilter === 'private') return item.state === 0 || item.state === 3;
-                if (currentFilter === 'selling') return item.state === 1;
-                if (currentFilter === 'sold') return item.state === 2;
-                return true;
-            });
-            if (filtered.length === 0) { div.innerHTML = "<p style='color:#999; text-align:center; grid-column:1/-1; padding:20px;'>暂无数据</p>"; return; }
-            filtered.forEach(item => {
-                const {id, data: f, state} = item;
-                const price = ethers.formatEther(f[6]);
-                const date = new Date(Number(f[4]) * 1000).toLocaleString();
-                let actionHtml = "";
-                if (state === 2) actionHtml = `<button class="confirm-btn" onclick="event.stopPropagation(); confirmReceipt('${id}')">✅ 确认收货 (解冻押金)</button>`;
-                const card = document.createElement("div");
-                card.className = "fish-card";
-                card.innerHTML = `
-                    <div class="fish-header"><h3 style="margin:0; color:#0077be;">🐟 ${f[0]}</h3><span class="badge badge-${state}">${STATE_TEXT[state]}</span></div>
-                    <div class="fish-details">
-                        <p><span>ID:</span> <b>${id}</b></p>
-                        <p><span>📍 地点:</span> <b>${f[1]}</b></p>
-                        <p><span>🌡️ 温度:</span> <b>${f[2]} °C</b></p>
-                        <p><span>⚖️ 重量:</span> <b>${f[3]} g</b></p>
-                        <p><span>🕒 时间:</span> ${date}</p>
-                        <div class="fish-hash">🔗 Hash: ${f[5]}</div>
-                        <hr style="border-top:1px dashed #eee; margin:8px 0;">
-                        <p><span>💎 价格:</span> <b style="color:${state===0?'#999':'red'}">${state===0 ? '未定' : price+' ETH'}</b></p>
-                    </div>
-                    ${actionHtml}
-                `;
-                card.onclick = () => { 
-                    document.getElementById("sellId").value = id; 
-                    document.getElementById("logId").value = id;
-                };
-                div.appendChild(card);
-            });
-        }
-
-        // --- 基础交互 ---
-        async function buyFish(id, priceEth) {
-            try {
-                if(!confirm(`确认购买 ID:${id} ?\n\n售价: ${priceEth} ETH\n押金: ${priceEth} ETH\n总计需付: ${priceEth*2} ETH`)) return;
-                showToast("正在支付...");
-                const priceWei = ethers.parseEther(priceEth);
-                const tx = await contract.buyFish(id, { value: priceWei * 2n });
-                await tx.wait();
-                showToast("✅ 购买成功！");
-                refreshAll();
-            } catch (e) { alert(e.message); }
-        }
-
-        async function catchFish() {
-            const s=v("species"), l=v("loc"), t=v("temp"), w=v("weight");
-            if(!s||!l||!t||!w) return alert("请填写完整");
-            try {
-                showToast("上链中...");
-                const tx = await contract.catchFish("ipfs://demo", s, l, t, w, "HASH_"+Date.now());
-                await tx.wait();
-                showToast("✅ 捕捞成功");
-                refreshAll();
-            } catch(e) { alert(e.message); }
-        }
-
-        async function listFish() {
-            const id=v("sellId"), price=v("sellPrice");
-            if(!id||!price) return alert("输入完整");
-            try {
-                const wei = ethers.parseEther(price);
-                showToast("需支付押金...");
-                const tx = await contract.listFish(id, wei, {value: wei});
-                await tx.wait();
-                showToast("✅ 上架成功");
-                refreshAll();
-            } catch(e) { alert(e.message); }
-        }
-
-        async function confirmReceipt(id) {
-            try {
-                showToast("确认收货...");
-                const tx = await contract.confirmReceipt(id);
-                await tx.wait();
-                alert("✅ 交易完成！资金已解冻。");
-                refreshAll();
-            } catch(e) { alert(e.message); }
-        }
-
-        async function withdrawPayments() {
-            try {
-                showToast("提现中...");
-                const tx = await contract.withdrawPayments();
-                await tx.wait();
-                alert("✅ 提现成功");
-                checkPendingBalance();
-            } catch(e) { alert(e.message); }
+                const res = await contract.getFishStatusAtTime(id, ts);
+                document.getElementById("traceResult").innerHTML = res[3] ? `<div>${res[0]}, ${res[1]}°C</div>` : "未找到";
+            } catch(e){}
         }
 
         function v(id) { return document.getElementById(id).value; }
         function shortAddr(addr) { return addr ? addr.slice(0,6)+"..."+addr.slice(-4) : ""; }
-        function refreshAll() { clearInputs(); checkPendingBalance(); loadMyFish(); loadMarketplace(); }
+        function refreshAll() { clearInputs(); refreshBalances(); loadMyFish(); loadMarketplace(); }
         function clearInputs() { document.querySelectorAll("input").forEach(i => i.value = ""); }
-        function showToast(msg) {
-            const el = document.getElementById("status");
-            el.innerText = msg;
-            el.style.display = "block";
-            setTimeout(() => el.style.display = "none", 3000);
-        }
-        async function checkPendingBalance() {
-            if (!contract) return;
-            try {
-                const addr = await signer.getAddress();
-                const bal = await contract.pendingWithdrawals(addr);
-                document.getElementById("pendingBalance").innerText = ethers.formatEther(bal) + " ETH";
-            } catch (e) {}
-        }
+        function showToast(msg) { const el = document.getElementById("status"); el.innerText = msg; el.style.display = "block"; setTimeout(() => el.style.display = "none", 3000); }
     </script>
 </body>
 </html>
