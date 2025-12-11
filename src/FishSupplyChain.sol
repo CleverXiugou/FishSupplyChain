@@ -10,20 +10,25 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard, Ownable {
     uint256 private _nextTokenId;
 
-    enum State { Active, Listed, Sold, Completed }
+    enum State {
+        Active,
+        Listed,
+        Sold,
+        Completed
+    }
 
     struct TraceData {
-        uint256 timestamp;   // 记录时间
-        string location;     // 当前位置
-        int256 temperature;  // 当前温度
+        uint256 timestamp; // 记录时间
+        string location; // 当前位置
+        int256 temperature; // 当前温度
     }
 
     struct Fish {
         string species;
-        string location;     
-        int256 temperature;  
+        string location;
+        int256 temperature;
         uint256 weight;
-        uint catchTime;
+        uint256 catchTime;
         string evidenceHash;
         uint256 price;
         State state;
@@ -46,7 +51,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
 
     // --- 1. 捕捞 ---
     function catchFish(
-        string memory _tokenURI, 
+        string memory _tokenURI,
         string memory _species,
         string memory _location,
         int256 _temperature,
@@ -70,11 +75,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         newFish.fisherman = msg.sender;
 
         // 记录初始点
-        newFish.history.push(TraceData({
-            timestamp: block.timestamp,
-            location: _location,
-            temperature: _temperature
-        }));
+        newFish.history.push(TraceData({timestamp: block.timestamp, location: _location, temperature: _temperature}));
 
         emit FishCaught(tokenId, msg.sender, _species);
         return tokenId;
@@ -83,35 +84,35 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     // --- 2. 更新物流 ---
     function updateLogistics(uint256 tokenId, string memory _location, int256 _temperature) public {
         require(ownerOf(tokenId) == msg.sender, "Not owner");
-        
+
         Fish storage fish = fishDetails[tokenId];
         fish.location = _location;
         fish.temperature = _temperature;
 
-        fish.history.push(TraceData({
-            timestamp: block.timestamp,
-            location: _location,
-            temperature: _temperature
-        }));
+        fish.history.push(TraceData({timestamp: block.timestamp, location: _location, temperature: _temperature}));
 
         emit LogisticsUpdated(tokenId, _location, _temperature);
     }
 
     // --- 3. 根据时间戳查询状态 ---
     // 返回指定时间点鱼的位置和温度
-    function getFishStatusAtTime(uint256 tokenId, uint256 queryTimestamp) public view returns (string memory location, int256 temperature, uint256 recordedTime, bool found) {
+    function getFishStatusAtTime(uint256 tokenId, uint256 queryTimestamp)
+        public
+        view
+        returns (string memory location, int256 temperature, uint256 recordedTime, bool found)
+    {
         require(ownerOf(tokenId) != address(0), "Fish does not exist");
-        
+
         TraceData[] memory history = fishDetails[tokenId].history;
-        
+
         // 倒序遍历，找到第一个早于或等于 queryTimestamp 的记录
-        for (int i = int(history.length) - 1; i >= 0; i--) {
-            TraceData memory record = history[uint(i)];
+        for (int256 i = int256(history.length) - 1; i >= 0; i--) {
+            TraceData memory record = history[uint256(i)];
             if (record.timestamp <= queryTimestamp) {
                 return (record.location, record.temperature, record.timestamp, true);
             }
         }
-        
+
         // 如果查询时间早于捕捞时间，返回空
         return ("", 0, 0, false);
     }
@@ -168,7 +169,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         uint256 amount = pendingWithdrawals[msg.sender];
         require(amount > 0, "No funds");
         pendingWithdrawals[msg.sender] = 0;
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
         emit FundsWithdrawn(msg.sender, amount);
     }
@@ -214,16 +215,28 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     }
 
     // Overrides
-    function _update(address to, uint256 tokenId, address auth) internal override(ERC721, ERC721Enumerable) returns (address) {
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721, ERC721Enumerable)
+        returns (address)
+    {
         return super._update(to, tokenId, auth);
     }
+
     function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
         super._increaseBalance(account, value);
     }
+
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(tokenId);
     }
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable, ERC721URIStorage)
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
     }
 }
