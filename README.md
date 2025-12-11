@@ -93,13 +93,3 @@ const CONTRACT_ADDRESS = "你的合约地址粘贴在这里";
 
 访问 http://localhost:8000。
 
-## 📂 项目结构
-FishSupplyChain/
-├── src/
-│   └── FishSupplyChain.sol    # 核心智能合约代码
-├── script/
-│   └── DeployFish.s.sol       # 部署脚本
-├── test/                      # 测试文件
-├── index.html                 # 前端交互界面
-├── foundry.toml               # Foundry 配置文件 (已开启优化器)
-└── README.md                  # 项目文档
