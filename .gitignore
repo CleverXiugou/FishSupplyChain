@@ -1,0 +1,14 @@
+# Foundry 编译缓存和产物
+out/
+cache/
+broadcast/
+
+# 环境变量 (保护私钥!!!)
+.env
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 如果有 node_modules
+node_modules/
