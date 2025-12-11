@@ -20,7 +20,13 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     error NoFunds();
     error FishDoesNotExist();
 
-    enum State { Active, Listed, Sold, Completed, Rejected }
+    enum State {
+        Active,
+        Listed,
+        Sold,
+        Completed,
+        Rejected
+    }
 
     struct TraceData {
         uint256 timestamp;
@@ -33,7 +39,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         string location;
         int256 temperature;
         uint256 weight;
-        uint catchTime;
+        uint256 catchTime;
         string evidenceHash;
         uint256 price;
         State state;
@@ -43,7 +49,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     }
 
     mapping(uint256 => Fish) public fishDetails;
-    
+
     // 1. 可提现余额 (已结算/已解冻)
     mapping(address => uint256) public pendingWithdrawals;
     // 2. 冻结资金 (质押中/交易中) - 新增
@@ -53,7 +59,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     event FishListed(uint256 indexed tokenId, uint256 price, address seller);
     event FishSold(uint256 indexed tokenId, address buyer, uint256 price);
     event FishConfirmed(uint256 indexed tokenId, address buyer, address seller);
-    event FishRejected(uint256 indexed tokenId, address buyer, address seller); 
+    event FishRejected(uint256 indexed tokenId, address buyer, address seller);
     event FundsWithdrawn(address indexed user, uint256 amount);
     event LogisticsUpdated(uint256 indexed tokenId, string location, int256 temperature);
 
@@ -61,7 +67,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
 
     // --- 1. 捕捞 ---
     function catchFish(
-        string memory _tokenURI, 
+        string memory _tokenURI,
         string memory _species,
         string memory _location,
         int256 _temperature,
@@ -84,11 +90,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         newFish.seller = address(0);
         newFish.fisherman = msg.sender;
 
-        newFish.history.push(TraceData({
-            timestamp: block.timestamp,
-            location: _location,
-            temperature: _temperature
-        }));
+        newFish.history.push(TraceData({timestamp: block.timestamp, location: _location, temperature: _temperature}));
 
         emit FishCaught(tokenId, msg.sender, _species);
         return tokenId;
@@ -97,27 +99,27 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     // --- 2. 更新物流 ---
     function updateLogistics(uint256 tokenId, string memory _location, int256 _temperature) public {
         if (ownerOf(tokenId) != msg.sender) revert NotOwner();
-        
+
         Fish storage fish = fishDetails[tokenId];
         fish.location = _location;
         fish.temperature = _temperature;
-        
-        fish.history.push(TraceData({
-            timestamp: block.timestamp,
-            location: _location,
-            temperature: _temperature
-        }));
-        
+
+        fish.history.push(TraceData({timestamp: block.timestamp, location: _location, temperature: _temperature}));
+
         emit LogisticsUpdated(tokenId, _location, _temperature);
     }
 
     // --- 3. 查询特定时间状态 ---
-    function getFishStatusAtTime(uint256 tokenId, uint256 queryTimestamp) public view returns (string memory location, int256 temperature, uint256 recordedTime, bool found) {
+    function getFishStatusAtTime(uint256 tokenId, uint256 queryTimestamp)
+        public
+        view
+        returns (string memory location, int256 temperature, uint256 recordedTime, bool found)
+    {
         if (ownerOf(tokenId) == address(0)) return ("", 0, 0, false);
 
         TraceData[] memory history = fishDetails[tokenId].history;
-        for (int i = int(history.length) - 1; i >= 0; i--) {
-            TraceData memory record = history[uint(i)];
+        for (int256 i = int256(history.length) - 1; i >= 0; i--) {
+            TraceData memory record = history[uint256(i)];
             if (record.timestamp <= queryTimestamp) {
                 return (record.location, record.temperature, record.timestamp, true);
             }
@@ -139,7 +141,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         fishDetails[tokenId].price = price;
         fishDetails[tokenId].state = State.Listed;
         fishDetails[tokenId].seller = msg.sender;
-        
+
         // 记录卖家冻结资金 (押金)
         frozenFunds[msg.sender] += price;
 
@@ -148,7 +150,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
 
     function buyFish(uint256 tokenId) public payable nonReentrant {
         Fish storage fish = fishDetails[tokenId];
-        
+
         if (fish.state != State.Listed) revert InvalidState();
         if (msg.sender == fish.seller) revert NotSeller();
         if (msg.value != 2 * fish.price) revert IncorrectValue();
@@ -164,7 +166,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
 
     function confirmReceipt(uint256 tokenId) public nonReentrant {
         Fish storage fish = fishDetails[tokenId];
-        
+
         if (fish.state != State.Sold) revert InvalidState();
         if (ownerOf(tokenId) != msg.sender) revert OnlyBuyer();
 
@@ -175,12 +177,12 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         address buyer = msg.sender;
 
         // 解除冻结
-        frozenFunds[seller] -= price;      // 卖家押金解除
-        frozenFunds[buyer] -= 2 * price;   // 买家资金解除
+        frozenFunds[seller] -= price; // 卖家押金解除
+        frozenFunds[buyer] -= 2 * price; // 买家资金解除
 
         // 结算可提现
         pendingWithdrawals[seller] += 2 * price; // 卖家得: 货款+押金
-        pendingWithdrawals[buyer] += price;      // 买家得: 退回的一半押金
+        pendingWithdrawals[buyer] += price; // 买家得: 退回的一半押金
 
         emit FishConfirmed(tokenId, buyer, seller);
     }
@@ -188,19 +190,19 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     // --- 拒绝收货 ---
     function rejectFish(uint256 tokenId) public nonReentrant {
         Fish storage fish = fishDetails[tokenId];
-        
+
         if (fish.state != State.Sold) revert InvalidState();
         if (ownerOf(tokenId) != msg.sender) revert OnlyBuyer();
 
         fish.state = State.Rejected;
-        
+
         uint256 price = fish.price;
         address seller = fish.seller;
         address buyer = msg.sender;
-        
+
         // 解除冻结
-        frozenFunds[seller] -= price;      // 卖家押金解除(但被没收)
-        frozenFunds[buyer] -= 2 * price;   // 买家资金解除
+        frozenFunds[seller] -= price; // 卖家押金解除(但被没收)
+        frozenFunds[buyer] -= 2 * price; // 买家资金解除
 
         // 结算可提现 (惩罚逻辑)
         // 买家获得: 自己付出的2份 + 卖家赔偿的1份 = 3份
@@ -214,9 +216,9 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         if (amount == 0) revert NoFunds();
 
         pendingWithdrawals[msg.sender] = 0;
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
-        
+
         emit FundsWithdrawn(msg.sender, amount);
     }
 
@@ -261,16 +263,28 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     }
 
     // Overrides
-    function _update(address to, uint256 tokenId, address auth) internal override(ERC721, ERC721Enumerable) returns (address) {
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721, ERC721Enumerable)
+        returns (address)
+    {
         return super._update(to, tokenId, auth);
     }
+
     function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
         super._increaseBalance(account, value);
     }
+
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(tokenId);
     }
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable, ERC721URIStorage)
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
     }
 }
