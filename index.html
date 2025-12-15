@@ -149,12 +149,12 @@
     </div>
 
     <div class="card">
-        <h2>💰 卖家：上架操作</h2>
+        <h2>💰 卖家：上架操作 </h2>
         <div class="grid">
             <input id="sellId" type="number" placeholder="🆔 鱼 ID">
             <input id="sellPrice" type="number" placeholder="💎 售价 (ETH)">
         </div>
-        <button onclick="listFish()">🏷️ 支付押金并上架</button>
+            <button onclick="listFish()" id="btnList" style="background:#e91e63;">🏷️ 支付押金并上架</button>
     </div>
 
     <div class="card" style="border-top: 4px solid #28a745;">
@@ -183,7 +183,7 @@
 
     <script>
         // ⚠️⚠️⚠️ 请替换为最新部署合约地址 ⚠️⚠️⚠️
-        const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; 
+        const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
 
         const ABI = [
             "function catchFish(string, string, string, int256, uint256, string) public returns (uint256)",
@@ -483,6 +483,8 @@
                         </div>`;
                 } else if (state === 4) {
                     actionHtml = `<div style="margin-top:10px; color:#d32f2f; font-size:12px; font-weight:bold;">🚫 此订单已拒收并退款</div>`;
+                } else if (state == 0 || state == 3){
+                    actionHtml = `<div style="margin-top:8px; font-size:12px; color:#28a745; border-top:1px dashed #eee; padding-top:5px;">✨ 点击卡片即可上架/转卖</div>`;
                 }
 
                 const card = document.createElement("div");
@@ -504,6 +506,7 @@
                 card.onclick = () => { 
                     document.getElementById("sellId").value = id; 
                     document.getElementById("logId").value = id;
+                    document.getElementById("sellPrice").focus();
                 };
                 div.appendChild(card);
             });
@@ -511,14 +514,21 @@
 
         async function buyFish(id, priceEth) {
             try {
+                const priceWei = ethers.parseEther(String(priceEth)); 
+                const totalWei = priceWei * 2n;
+                const totalDisp = ethers.formatEther(totalWei);
+
                 if(!confirm(`确认购买 ID:${id} ?\n\n售价: ${priceEth} ETH\n押金: ${priceEth} ETH\n总计需付: ${priceEth*2} ETH`)) return;
                 showToast("正在支付...");
-                const priceWei = ethers.parseEther(priceEth);
+
                 const tx = await contract.buyFish(id, { value: priceWei * 2n });
                 await tx.wait();
                 showToast("✅ 购买成功！");
                 refreshAll();
-            } catch (e) { alert(e.message); }
+            } catch (e) { 
+                console.error(e);
+                alert("购买失败: " + (e.reason || e.message));
+             }
         }
 
         async function catchFish() {
@@ -536,14 +546,20 @@
         async function listFish() {
             const id=v("sellId"), price=v("sellPrice");
             if(!id||!price) return alert("输入完整");
+            if(parseFloat(price) <= 0) return alert("❌ 价格必须大于 0");
+
             try {
                 const wei = ethers.parseEther(price);
                 showToast("需支付押金...");
+
                 const tx = await contract.listFish(id, wei, {value: wei});
                 await tx.wait();
                 showToast("✅ 上架成功");
                 refreshAll();
-            } catch(e) { alert(e.message); }
+            } catch(e) { 
+                console.error(e);
+                alert("上架失败: " + (e.reason || e.message));
+             }
         }
 
         async function confirmReceipt(id) {

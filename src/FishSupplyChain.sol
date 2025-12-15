@@ -29,25 +29,39 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     }
 
     struct TraceData {
+        // 更新时间戳
         uint256 timestamp;
+        // 当前鱼的位置
         string location;
+        // 当前鱼的温度
         int256 temperature;
     }
 
     struct Fish {
+        // 鱼的种类
         string species;
+        // 捕鱼的位置
         string location;
+        // 捕捞时的温度
         int256 temperature;
+        // 鱼的重量
         uint256 weight;
+        // 捕捞时间
         uint256 catchTime;
+        // 鱼的证据哈希
         string evidenceHash;
+        // 鱼的价格
         uint256 price;
+        // 当前鱼的状态，State在上面已经被定义为5中状态
         State state;
+        // 卖家
         address seller;
+        // 渔民
         address fisherman;
+        // 鱼的全状态模式
         TraceData[] history;
     }
-
+    // 鱼的TokenId => 一条鱼
     mapping(uint256 => Fish) public fishDetails;
 
     // 1. 可提现余额 (已结算/已解冻)
@@ -66,16 +80,21 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     constructor() ERC721("Premium SeaFood", "FISH") Ownable(msg.sender) {}
 
     // --- 1. 捕捞 ---
+    // _tokenURI是用来链接鱼的其他信息的，存储在其他链上，当前项目没有使用到
+    // _evidenceHash可理解为指纹，根据不同场景可以被认为捕鱼许可证，检疫证明等，当前项目暂未使用
     function catchFish(
-        string memory _tokenURI,
+        string memory _tokenURI, 
         string memory _species,
         string memory _location,
         int256 _temperature,
         uint256 _weight,
         string memory _evidenceHash
     ) public returns (uint256) {
+        // 生成一个独一无二的16位数字tokenId
         uint256 tokenId = generateUniqueId();
+        // ERC721标准库提供的内部函数，铸币操作，tokenId为xxx的鱼属于msg.sender这个渔民了
         _mint(msg.sender, tokenId);
+        // 绑定说明书：tokenId的鱼具体信息去_tokenURI查看吧
         _setTokenURI(tokenId, _tokenURI);
 
         Fish storage newFish = fishDetails[tokenId];
@@ -86,24 +105,29 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         newFish.catchTime = block.timestamp;
         newFish.evidenceHash = _evidenceHash;
         newFish.price = 0;
+        // 初始化鱼的状态为未上架，只上链了
         newFish.state = State.Active;
+        // 因为还没有卖鱼，卖家地址设置为0地址
         newFish.seller = address(0);
         newFish.fisherman = msg.sender;
-
+        // 把鱼的信息放到数组中
         newFish.history.push(TraceData({timestamp: block.timestamp, location: _location, temperature: _temperature}));
 
         emit FishCaught(tokenId, msg.sender, _species);
         return tokenId;
     }
 
-    // --- 2. 更新物流 ---
+    // --- 2. 更新物流状态 ---
+    // 需要传入鱼的tokenId，当前位置，当前温度
     function updateLogistics(uint256 tokenId, string memory _location, int256 _temperature) public {
+        // 只有鱼当前的所有者可以更新信息
         if (ownerOf(tokenId) != msg.sender) revert NotOwner();
-
+        // 把鱼之前的信息先赋值进入
         Fish storage fish = fishDetails[tokenId];
+        // 更新当前位置和温度
         fish.location = _location;
         fish.temperature = _temperature;
-
+        // 把鱼的信息放入到数组中
         fish.history.push(TraceData({timestamp: block.timestamp, location: _location, temperature: _temperature}));
 
         emit LogisticsUpdated(tokenId, _location, _temperature);
@@ -127,15 +151,21 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         return ("", 0, 0, false);
     }
 
+    // 查询鱼的全部历史数据
     function getFishHistory(uint256 tokenId) public view returns (TraceData[] memory) {
         return fishDetails[tokenId].history;
     }
 
-    // --- 交易功能 ---
+    // --- 交易上架功能，支持二手转卖 ---
     function listFish(uint256 tokenId, uint256 price) public payable nonReentrant {
         if (ownerOf(tokenId) != msg.sender) revert NotOwner();
+        // price是uint类型，所以没有负数，只需要保证上架价格不等于0就行
         if (price == 0) revert InvalidPrice();
-        if (fishDetails[tokenId].state != State.Active) revert InvalidState();
+        // 要保证鱼之前的状态是已上链或已收货
+        if (fishDetails[tokenId].state != State.Active && fishDetails[tokenId].state != State.Completed) {
+            revert InvalidState();
+        }
+        // 
         if (msg.value != price) revert IncorrectValue();
 
         fishDetails[tokenId].price = price;
