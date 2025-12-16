@@ -83,7 +83,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
     // _tokenURI是用来链接鱼的其他信息的，存储在其他链上，当前项目没有使用到
     // _evidenceHash可理解为指纹，根据不同场景可以被认为捕鱼许可证，检疫证明等，当前项目暂未使用
     function catchFish(
-        string memory _tokenURI, 
+        string memory _tokenURI,
         string memory _species,
         string memory _location,
         int256 _temperature,
@@ -165,7 +165,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         if (fishDetails[tokenId].state != State.Active && fishDetails[tokenId].state != State.Completed) {
             revert InvalidState();
         }
-        // 
+        //
         if (msg.value != price) revert IncorrectValue();
 
         fishDetails[tokenId].price = price;
