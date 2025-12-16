@@ -139,9 +139,12 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         view
         returns (string memory location, int256 temperature, uint256 recordedTime, bool found)
     {
+        // 这条鱼还没有被捕捞上来
         if (ownerOf(tokenId) == address(0)) return ("", 0, 0, false);
 
+        // 获取鱼的历史数据
         TraceData[] memory history = fishDetails[tokenId].history;
+        // 遍历鱼的历史数据
         for (int256 i = int256(history.length) - 1; i >= 0; i--) {
             TraceData memory record = history[uint256(i)];
             if (record.timestamp <= queryTimestamp) {
@@ -165,7 +168,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         if (fishDetails[tokenId].state != State.Active && fishDetails[tokenId].state != State.Completed) {
             revert InvalidState();
         }
-        //
+        // 保证传入合约的钱（押金）等于鱼的售价
         if (msg.value != price) revert IncorrectValue();
 
         fishDetails[tokenId].price = price;
@@ -178,14 +181,19 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         emit FishListed(tokenId, price, msg.sender);
     }
 
+    
     function buyFish(uint256 tokenId) public payable nonReentrant {
         Fish storage fish = fishDetails[tokenId];
-
+        // 鱼必须已经上架
         if (fish.state != State.Listed) revert InvalidState();
+        // 自己不能买自己卖的鱼
         if (msg.sender == fish.seller) revert NotSeller();
+        // 传入合约的钱是押金+售价
         if (msg.value != 2 * fish.price) revert IncorrectValue();
 
+        // 更新鱼的状态为已售出
         fish.state = State.Sold;
+        // 更改鱼的归属权：_transfer(from, to, tokenId)
         _transfer(fish.seller, msg.sender, tokenId);
 
         // 记录买家冻结资金 (双倍货款)
@@ -194,14 +202,19 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         emit FishSold(tokenId, msg.sender, fish.price);
     }
 
+    // 确认收货（鱼没有问题）
     function confirmReceipt(uint256 tokenId) public nonReentrant {
         Fish storage fish = fishDetails[tokenId];
 
+        // 确实收货的鱼必须要为已售出状态
         if (fish.state != State.Sold) revert InvalidState();
+        // 只有买家可以确认收货
         if (ownerOf(tokenId) != msg.sender) revert OnlyBuyer();
 
+        // 更改鱼的状态为已收货
         fish.state = State.Completed;
 
+        // 记录鱼的归属权变化
         uint256 price = fish.price;
         address seller = fish.seller;
         address buyer = msg.sender;
@@ -217,15 +230,19 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         emit FishConfirmed(tokenId, buyer, seller);
     }
 
-    // --- 拒绝收货 ---
+    // 拒绝收货（鱼有问题）
     function rejectFish(uint256 tokenId) public nonReentrant {
         Fish storage fish = fishDetails[tokenId];
 
+        // 鱼当前的状态为已出售
         if (fish.state != State.Sold) revert InvalidState();
+        // 只有买家可以调用这个函数
         if (ownerOf(tokenId) != msg.sender) revert OnlyBuyer();
 
+        // 更新鱼的状态
         fish.state = State.Rejected;
 
+        // 记录鱼的归属权信息
         uint256 price = fish.price;
         address seller = fish.seller;
         address buyer = msg.sender;
@@ -240,7 +257,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
 
         emit FishRejected(tokenId, buyer, seller);
     }
-
+    
     function destroyFish(uint256 tokenId) public nonReentrant {
         if (ownerOf(tokenId) != msg.sender) revert NotOwner();
 
