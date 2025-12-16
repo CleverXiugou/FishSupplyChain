@@ -183,7 +183,7 @@
 
     <script>
         // ⚠️⚠️⚠️ 请替换为最新部署合约地址 ⚠️⚠️⚠️
-        const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
+        const CONTRACT_ADDRESS = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"; 
 
         const ABI = [
             "function catchFish(string, string, string, int256, uint256, string) public returns (uint256)",
@@ -191,6 +191,7 @@
             "function buyFish(uint256 tokenId) public payable",
             "function confirmReceipt(uint256 tokenId) public",
             "function rejectFish(uint256 tokenId) public",
+            "function destroyFish(uint256 tokenId) public",
             "function withdrawPayments() public",
             "function updateLogistics(uint256 tokenId, string _location, int256 _temperature) public",
             "function getFishStatusAtTime(uint256 tokenId, uint256 queryTimestamp) view returns (string, int256, uint256, bool)",
@@ -484,7 +485,17 @@
                 } else if (state === 4) {
                     actionHtml = `<div style="margin-top:10px; color:#d32f2f; font-size:12px; font-weight:bold;">🚫 此订单已拒收并退款</div>`;
                 } else if (state == 0 || state == 3){
-                    actionHtml = `<div style="margin-top:8px; font-size:12px; color:#28a745; border-top:1px dashed #eee; padding-top:5px;">✨ 点击卡片即可上架/转卖</div>`;
+                    const label = state === 0 ? "新捕捞" : "已购入";
+                    actionHtml = `
+                        <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #eee; display:flex; justify-content:space-between; align-items:center;">
+                           <div style="display:flex; align-items:center; gap:5px;">
+                               <span style="font-size:12px; color:#666;">${label}:</span>
+                               <button class="sm-btn" onclick="event.stopPropagation(); fillSellInfo('${id}')" style="background:#e91e63; width:auto;">上架</button>
+                           </div>
+                           
+                           <button class="sm-btn" onclick="event.stopPropagation(); destroyFish('${id}')" style="background:#795548; width:auto;">🍽️ 销毁</button>
+                        </div>
+                    `;
                 }
 
                 const card = document.createElement("div");
@@ -584,6 +595,23 @@
             } catch(e) { 
                 console.error(e);
                 alert("操作失败: " + (e.reason || e.message)); 
+            }
+        }
+
+        async function destroyFish(id) {
+            // 二次确认，因为销毁是不可逆的
+            if(!confirm(`🍽️ 真的要销毁 ID: ${id} 吗？\n\n操作不可撤销，这就真没了！`)) return;
+
+            try {
+                showToast("正在销毁这条鱼...");
+                const tx = await contract.destroyFish(id);
+                await tx.wait();
+                
+                showToast("😋 鱼已被销毁成功");
+                refreshAll(); // 刷新后，鱼会自动从列表中消失
+            } catch (e) {
+                console.error(e);
+                alert("销毁失败: " + (e.reason || e.message));
             }
         }
 

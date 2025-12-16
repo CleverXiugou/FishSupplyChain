@@ -241,6 +241,14 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         emit FishRejected(tokenId, buyer, seller);
     }
 
+    function destroyFish(uint256 tokenId) public nonReentrant {
+        if (ownerOf(tokenId) != msg.sender) revert NotOwner();
+
+        Fish storage fish = fishDetails[tokenId];
+        require(fish.state == State.Active || fish.state == State.Completed, "Cannot destroy fish NFT");
+        _burn(tokenId);
+    }
+
     function withdrawPayments() public nonReentrant {
         uint256 amount = pendingWithdrawals[msg.sender];
         if (amount == 0) revert NoFunds();
