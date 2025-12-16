@@ -181,7 +181,6 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         emit FishListed(tokenId, price, msg.sender);
     }
 
-    
     function buyFish(uint256 tokenId) public payable nonReentrant {
         Fish storage fish = fishDetails[tokenId];
         // 鱼必须已经上架
@@ -257,7 +256,7 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
 
         emit FishRejected(tokenId, buyer, seller);
     }
-    
+
     function destroyFish(uint256 tokenId) public nonReentrant {
         if (ownerOf(tokenId) != msg.sender) revert NotOwner();
 
