@@ -36,12 +36,12 @@
 ### 4. 🖥️ 前端交互
 可视化时间轴：清晰展示捕捞、上架、购买、成交/拒收的全过程。
 
-市场筛选：支持按私有、在售、待收货等状态筛选 NFT。
+市场筛选：支持按私有、在售、待收货等状态筛选 NFT，支持按价格升降序查看。
 
 ## 🛠️ 技术栈 (Tech Stack)
 * 智能合约: Solidity (ERC721 标准)
 
-* 开发框架: Foundry (Forge, Anvil, Cast)
+* 开发框架: Foundry (Forge, Anvil)
 
 * 前端: HTML5, CSS3 (原生), Ethers.js v6
 
