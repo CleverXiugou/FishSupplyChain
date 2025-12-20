@@ -257,66 +257,97 @@ contract FishSupplyChain is ERC721, ERC721Enumerable, ERC721URIStorage, Reentran
         emit FishRejected(tokenId, buyer, seller);
     }
 
+    // 销毁鱼代币
     function destroyFish(uint256 tokenId) public nonReentrant {
+        // 只有鱼的拥有者可以销毁
         if (ownerOf(tokenId) != msg.sender) revert NotOwner();
-
         Fish storage fish = fishDetails[tokenId];
+        // 只有当鱼目前状态为已上链（未上架）和交易完成时才可销毁
         require(fish.state == State.Active || fish.state == State.Completed, "Cannot destroy fish NFT");
         _burn(tokenId);
     }
 
+    // 提取合约中的钱
     function withdrawPayments() public nonReentrant {
+        // amount记录合约中自己账户的钱
         uint256 amount = pendingWithdrawals[msg.sender];
+        // 账户的钱必须大于0
         if (amount == 0) revert NoFunds();
-
+        // 清空合约中自己账户的钱
         pendingWithdrawals[msg.sender] = 0;
+        // msg.sender 收到合约的转账，双引号是.call的参数，表示不发送任何数据，
+        // .call会返回两个结果，1:布尔值 2:字节数据 我们只关心交易是否成功，第二个参数可以不用管
         (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
 
         emit FundsWithdrawn(msg.sender, amount);
     }
 
-    // --- 辅助功能 ---
+    // 获取所有在售的鱼
     function getAllFishForSale() public view returns (uint256[] memory, Fish[] memory) {
+        // 获取当前有多少鱼
         uint256 total = totalSupply();
+        // 初始化计数器
         uint256 listedCount = 0;
+        // 遍历所有的鱼
         for (uint256 i = 0; i < total; i++) {
+            // tokenByIndex 可以把索引0，1，2，转化成真实的tokenId
+            // 如果当前的鱼为在售状态，则计数器++
             if (fishDetails[tokenByIndex(i)].state == State.Listed) listedCount++;
         }
 
+        // 初始化一个数组存放在售鱼的tokenId，长度为listedCount
         uint256[] memory ids = new uint256[](listedCount);
+        // 初始化一个数组存放在售鱼的所有信息，长度为listedCount
         Fish[] memory fishes = new Fish[](listedCount);
+        // 用来记录填到第几个格子了
         uint256 currentIndex = 0;
 
+        // 用来填充数据
         for (uint256 i = 0; i < total; i++) {
+            // 将当前下标转化成tokenId
             uint256 tokenId = tokenByIndex(i);
+            // 如果鱼在出售中
             if (fishDetails[tokenId].state == State.Listed) {
+                // 记录鱼的tokenId和具体信息
                 ids[currentIndex] = tokenId;
                 fishes[currentIndex] = fishDetails[tokenId];
                 currentIndex++;
             }
         }
+        // 最后返回两个数组
         return (ids, fishes);
     }
 
+    // 生成16位tokenId
     function generateUniqueId() private view returns (uint256) {
         uint256 randomHash = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender)));
         return 1000000000000000 + (randomHash % 9000000000000000);
     }
 
+    // 获取鱼的主人
     function getFishByOwner(address _owner) public view returns (uint256[] memory, Fish[] memory) {
+        // balanceOf可以得出_owner名下的代币数量，也就是鱼的数量
         uint256 balance = balanceOf(_owner);
+        // 申请一个数组记录鱼的tokenId，长度为balance
         uint256[] memory ids = new uint256[](balance);
+        // 申请一个数组记录鱼的详细信息，长度为balance
         Fish[] memory fishes = new Fish[](balance);
+
         for (uint256 i = 0; i < balance; i++) {
+            // tokenOfOwnerByIndex可以返回_owner用户的第i个鱼的TokenId
             uint256 tokenId = tokenOfOwnerByIndex(_owner, i);
+            // 记录鱼的tokenId和详细信息
             ids[i] = tokenId;
             fishes[i] = fishDetails[tokenId];
         }
+        // 返回两个数组
         return (ids, fishes);
     }
 
     // Overrides
+    // 这里的super关键字表明调用离自己最近的继承的合约，
+    // 继承合约的远近要看最上面的contract排序
     function _update(address to, uint256 tokenId, address auth)
         internal
         override(ERC721, ERC721Enumerable)
